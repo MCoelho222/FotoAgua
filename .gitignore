@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+#Folders
+
+data_ctd
+ctd_processed_csv
+ctd_processed_xlsx
