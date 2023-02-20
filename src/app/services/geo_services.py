@@ -1,4 +1,4 @@
-def pointNamer(lat, lon, exact=False):
+def pointNamer(lat, lon, name_diff):
     
     flat = abs(float(lat))
     flon = abs(float(lon))
@@ -98,18 +98,18 @@ def pointNamer(lat, lon, exact=False):
             if ptname == 'NEAR' or ptname == 'FAR':
                 if flat <= abs(cross_section_lat):
                     name_found = True
-                    return f'{ptname}_UP'
+                    return f'{ptname}_UP {name_diff}'
                 else:
                     name_found = True
-                    return f'{ptname}_DOWN'
+                    return f'{ptname}_DOWN {name_diff}'
             else:
                 name_found = True
-                return ptname
+                return f'{ptname} {name_diff}'
 
-    if not name_found and flat < abs(cross_section_lat):
-        return 'VERY_FAR_UP'
-    else:
-        return 'VERY_FAR_DOWN'
+    if not name_found and flat <= abs(cross_section_lat):
+        return f'VERY_FAR_UP {name_diff}'
+    if not name_found and flat > abs(cross_section_lat):
+        return f'VERY_FAR_DOWN {name_diff}'
 
 
     

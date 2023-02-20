@@ -13,9 +13,6 @@ def nrows_ncols_for_subplots(dfs_dict):
         div = 3
     if s < 9:
         div = 2
-    print(keys)
-    print(np.ceil(len(keys)/div))
-    print(int(np.ceil(len(keys)/div)))
     nrows = int(np.ceil(len(keys)/div))
     ncols = div
 
