@@ -4,11 +4,12 @@ import pandas as pd
 import numpy as np
 import json
 import matplotlib.pyplot as plt
+# from ua_parser import user_agent_parser
 from flask import Blueprint
 from datetime import datetime
-from flask.wrappers import Response
+# from flask.wrappers import Response
 from src.app import mongo_client
-from bson import json_util
+# from bson import json_util
 from flask import request, jsonify
 from src.app.services.geo_services import pointNamer
 from src.app.services.plot_services import nrows_ncols_for_subplots
@@ -28,7 +29,7 @@ target_cols = ['Temperature (Celsius)', 'Pressure (Decibar)',
                'Sound velocity (Meters per Second)',
                'Density (Kilograms per Cubic Meter)']
 
-sites = ['L1', 'L2', 'L3', 'LR', 'PV1', 'PV6', 'PV7', 'NEAR_UP', 'NEAR_DOWN', 'FAR_UP', 'FAR_DOWN', 'VERY_FAR_UP', 'VERY_FAR_DOWN']
+sites = ['L1', 'L2', 'L3', 'LR', 'PV1', 'PV6', 'PV7', 'NEAR_UP', 'NEAR_DOWN', 'FAR_UP', 'VERY_FAR_UP', 'VERY_FAR_DOWN']
 
 month_names = {
     "01": "jan",
@@ -206,18 +207,7 @@ def populate_db():
                         lon_info.append(lon)
                         point_name = pointNamer(lat, lon, cast_time)
                         point_names.append(point_name)
-                # point_names_np = np.array(point_names)
-                # for pt in point_names:
 
-                #     times_repeat = len(point_names_np[point_names_np == pt])
-                #     if times_repeat >= 2:
-
-                #         pt_indexes = ('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j')
-                #         counter = 0
-                #         for i in range(len(point_names)):
-                #             if pt == point_names[i]:
-                #                 point_names[i] = f'{pt}_{pt_indexes[counter]}'
-                #                 counter+=1
                 counter2 = 0
                 for ff in os.listdir(DATAPATH):
                     checkpath = DATAPATH + '/' + ff
@@ -235,7 +225,7 @@ def populate_db():
                             target_df['Depth (Meter)'] = np.round(target_df['Depth (Meter)'], 1)
                             temp_profiles_df =  temp_profiles_df.merge(target_df, how='outer', on='Depth (Meter)', sort=True)
                             counter2 += 1
-                    
+  
                 if len(point_names) > 0:
                     cols_sorted = sorted(point_names)
                     ordered_cols = ['Depth (Meter)'] + cols_sorted
@@ -280,8 +270,8 @@ def plot_ctd_data():
         for data in ctd_data:
             date = data['date']
             dates.append(datetime.strptime(date, '%Y-%m-%d').date())
-            temp_df = json.loads(data['data'][param])
-            data_dict[date] = temp_df
+            df = json.loads(data['data'][param])
+            data_dict[date] = df
         dates.sort()
         
         fmt_dates = []
@@ -327,26 +317,39 @@ def plot_ctd_data():
                         plot_cols = plot_df.columns.values.tolist()
                         y = plot_df['Depth (Meter)']
                         for plot_col in plot_cols[1:]:
+                            print(plot_col)
                             x = plot_df[plot_col]
                             colorkey = plot_col.split(' ')[0]
-                            axes[i, j].scatter(x, y, label=plot_col, s=6, color=spatialcolors[colorkey])
-                        axes[i, j].legend(fontsize=6, framealpha=0.5)
+                            axes[i, j].scatter(x, y, label=plot_col[:-3], s=6, color=spatialcolors[colorkey])
+                        leg_cols = 1
+                        if len(plot_cols) > 14:
+                            leg_cols = 2
+                        if len(plot_cols) > 28:
+                            leg_cols = 3
+                        if len(plot_cols) > 42:
+                            leg_cols = 4
+                        axes[i, j].legend(fontsize=6, framealpha=0.25, loc='upper left', ncols=leg_cols, columnspacing=0.2, labelspacing=0.2, handletextpad=0.1)
                         axtitle = f'{month_names[fmt_dates[k][5:7]]}-{fmt_dates[k][:4]}'
-                        axes[i, j].set_title(axtitle, fontsize=8)
+                        axes[i, j].set_title(axtitle, fontsize=10)
                         if k == 0:
                             axes[i, j].invert_yaxis()
+                        if i == nrows - 1:
+                            axes[i, j].set_xlabel(xlabels_dict[qparam])
                     except IndexError:
                         pass
-            # plt.tight_layout()
+                axes[i, 0].set_ylabel('Depth (m)')
+            plt.tight_layout()
+            figname = f'{GRAPH_PATH}/fotoagua_{qparam}_{qmode}.png'
+            plt.savefig(figname, dpi=300)
             plt.show()
 
         if qmode == 'temporal':
 
             temporalcolors = {
-                        '01': 'red','02': 'purple', '03': 'm',
+                        '01': 'red','02': 'm', '03': 'pink',
                         '04': 'b', '05': '#B729FF', '06': '#6229FF',
                         '07': '#2983FF', '08': '#29D8FF', '09': '#29FF83',
-                        '10': 'c', '11': 'y', '12': 'orange'
+                        '10': 'lime', '11': 'y', '12': 'orange'
                     }
             all_sites_dict = {}
             for site in sites:
@@ -414,31 +417,41 @@ def plot_ctd_data():
                             y = plot_df['Depth (Meter)']
                             for plot_col in plot_cols:
                                 plot_date = plot_col.split(' ')[0]
+                                plot_date = plot_date.replace('20', '')
                                 cast_time = plot_col.split(' ')[-1]
                                 plot_date_items = plot_date.split('-')
                                 year = plot_date_items[0]
                                 month = plot_date_items[1]
-                                label = f'{month_names[month]}-{year} {cast_time}'
+                                label = f'{month_names[month]}-{year} {cast_time[:-3]}'
                                 x = plot_df[plot_col]
                                 xticks = np.arange(int(plot_xmin), int(plot_xmax), 1)
                                 yticks = np.arange(int(plot_ymin), int(plot_ymax), 2)
                                 axes[i, j].scatter(x, y, label=label, color=temporalcolors[month], s=6)
-                                axes[i, j].set_xticks(xticks, labels=xticks, fontsize=7)
-                                axes[i, j].set_yticks(yticks, labels=yticks, fontsize=7)
-                            axes[i, j].legend(fontsize=6, framealpha=0.5)
-                            axes[i, j].set_title(plot_sites[k], fontsize=8)
+                                axes[i, j].set_xticks(xticks, labels=xticks, fontsize=9)
+                                axes[i, j].set_yticks(yticks, labels=yticks, fontsize=9)
+                            leg_cols = 1
+                            if len(plot_cols) > 13:
+                                leg_cols = 2
+                            if len(plot_cols) > 26:
+                                leg_cols = 3
+                            if len(plot_cols) > 39:
+                                leg_cols = 4
+                            axes[i, j].legend(fontsize=6, framealpha=0.25, loc='upper left', ncols=leg_cols, columnspacing=0.2, labelspacing=0.2, handletextpad=0.1)
+                            axes[i, j].set_title(plot_sites[k], fontsize=9)
                             if i == nrows - 1:
-                                axes[i, j].set_xlabel(xlabels_dict[qparam], fontsize=7)
+                                axes[i, j].set_xlabel(xlabels_dict[qparam], fontsize=9)
                             if j == 0:
-                                axes[i, j].set_ylabel('Depth (m)', fontsize=7)
+                                axes[i, j].set_ylabel('Depth (m)', fontsize=9)
                             if k == 0:
                                 axes[i, j].invert_yaxis()
                         except IndexError as e:
                             print('INDEXERROR', e)
                             pass
-                # plt.tight_layout()
-                figname = f'{GRAPH_PATH}/fotoagua_{qparam}_{qmode}.png'
-                plt.savefig(figname)
+                plt.tight_layout()
+                figname1 = f'{GRAPH_PATH}/fotoagua_{qparam}_{qmode}.png'
+                figname2 = f'{GRAPH_PATH}/fotoagua_{qparam}_{qmode}.jpg'
+                plt.savefig(figname1, dpi=1200)
+                plt.savefig(figname2, dpi=1200)
                 plt.show()
 
         return (jsonify({"msg": "success"}), 200)

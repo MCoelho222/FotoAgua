@@ -5,7 +5,7 @@ description = ""
 authors = ["Marcelo Coelho <92119579+MCoelho222@users.noreply.github.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = ">=3.10,<3.12"
 Flask = "^2.2.2"
 python-dotenv = "^0.21.0"
 flasgger = "^0.9.5"
@@ -17,6 +17,7 @@ pydantic = "^1.10.2"
 pandas = "^1.5.2"
 openpyxl = "^3.1.0"
 matplotlib = "^3.6.3"
+scipy = "^1.10.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"

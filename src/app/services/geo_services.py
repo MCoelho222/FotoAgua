@@ -28,12 +28,13 @@ def pointNamer(lat, lon, name_diff):
         "right-lon": -49.3685
         }
     # These coords define a square around point LR
-    # UP: -25.51264 -49.36986, DOWN: -25.5128 -49.36968
+    # UP: -25.51264 -49.36986, DOWN: -25.5128 -49.3698
+    # -49.36968
     lr = {
         "up-lat": -25.51264, 
-        "down-lat": -25.5128,
+        "down-lat": -25.5129,
         "left-lon": -49.36986,
-        "right-lon": -49.36968
+        "right-lon": -49.36965
         }
     # These coords define a square around point L1
     # UP: -25.5113 -49.3694, DOWN: -25.5118 -49.36915
