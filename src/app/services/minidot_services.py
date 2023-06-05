@@ -34,3 +34,7 @@ def concat_minidot():
         minidot_df.to_csv(f'{SAVE_FILE_PATH}')
         minidot_dict[folder] = minidot_df
     return minidot_dict
+
+if __name__ == "__main__":
+
+    concat_minidot()
