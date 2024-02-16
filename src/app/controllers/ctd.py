@@ -29,7 +29,8 @@ target_cols = ['Temperature (Celsius)', 'Pressure (Decibar)',
                'Sound velocity (Meters per Second)',
                'Density (Kilograms per Cubic Meter)']
 
-sites = ['L1', 'L2', 'L3', 'LR', 'PV1', 'PV6', 'PV7', 'NEAR_UP', 'NEAR_DOWN', 'FAR_UP', 'VERY_FAR_UP', 'VERY_FAR_DOWN']
+# sites = ['L1', 'L2', 'L3', 'LR', 'PV1', 'PV6', 'PV7', 'NEAR_UP', 'NEAR_DOWN', 'FAR_UP', 'VERY_FAR_UP', 'VERY_FAR_DOWN']
+sites = ['LR', 'PV1',]
 
 month_names = {
     "01": "jan",
@@ -45,6 +46,8 @@ month_names = {
     "11": "nov",
     "12": "dec",
 }
+
+
 @ctd.route("/process", methods=['GET'])
 def process_ctd_data():
     """------------------------------------------------------------
@@ -58,56 +61,58 @@ def process_ctd_data():
     ---------------------------------------------------------------
     RETURN
     ---------------------------------------------------------------
-    JSON, status; {'msg': str}, int
-            
-    """
+    JSON, status; {'msg': str}, int        
+    ------------------------------------------------------------"""
     try:
         for col in target_cols:
             fdates = set([])
             dfs_dict = {}
             coord_dfs = {}
             for f in os.listdir(DATAPATH):
-                fdate = f.split('_')[1]
-                fdates.add(fdate)
+                if f.endswith('.csv'):
+                    fdate = f.split('_')[1]
+                    fdates.add(fdate)
             for date in fdates:
                 temp_profiles_df = pd.DataFrame(columns=['Depth (Meter)'])
                 point_names = []
                 lat_info = []
                 lon_info = []
                 for ff in os.listdir(DATAPATH):
-                    fdate = ff.split('_')[1]
-                    if date == fdate:
-                        lat = None
-                        lon = None
-                        cast_time = None
-                        for line in open(f'{DATAPATH}/{ff}', 'r'):
-                            split_comma = line.split(',')
-                            split_space = line.split(' ')
-                            if split_comma[0] == '% Start latitude':
-                                lat = float(split_comma[1][:-2])
-                            if split_comma[0] == '% Start longitude':
-                                lon = float(split_comma[1][:-2])
-                            if split_comma[0] == '% Cast time (local)':
-                                cast_time = split_space[-1][:-1]
-                        lat_info.append(lat)
-                        lon_info.append(lon)
-                        point_name = pointNamer(lat, lon, cast_time)
-                        point_names.append(point_name)
+                    if ff.endswith('.csv'):
+                        fdate = ff.split('_')[1]
+                        if date == fdate:
+                            lat = None
+                            lon = None
+                            cast_time = None
+                            for line in open(f'{DATAPATH}/{ff}', 'r'):
+                                split_comma = line.split(',')
+                                split_space = line.split(' ')
+                                if split_comma[0] == '% Start latitude':
+                                    lat = float(split_comma[1][:-2])
+                                if split_comma[0] == '% Start longitude':
+                                    lon = float(split_comma[1][:-2])
+                                if split_comma[0] == '% Cast time (local)':
+                                    cast_time = split_space[-1][:-1]
+                            lat_info.append(lat)
+                            lon_info.append(lon)
+                            point_name = pointNamer(lat, lon, cast_time)
+                            point_names.append(point_name)
                 
                 counter2 = 0
                 for ff in os.listdir(DATAPATH):
-                    fdate = ff.split('_')[1]
-                    if date == fdate:
-                    
-                        fpath = DATAPATH + '/' + ff
-                        if os.path.isfile(fpath):
-                            df = pd.read_csv(fpath, skiprows=28, index_col=False)
-                            target_df = df[['Depth (Meter)', col]]
-                            target_df.columns = ['Depth (Meter)', f'{point_names[counter2]}']
-                            target_df['Depth (Meter)'] = np.round(target_df['Depth (Meter)'], 1)
-                            temp_profiles_df =  temp_profiles_df.merge(target_df, how='outer', on='Depth (Meter)', sort=True)
-                            temp_profiles_df.set_index('Depth (Meter)',drop=True, inplace=True, verify_integrity=True)
-                            counter2 += 1
+                    if ff.endswith('.csv'):
+                        fdate = ff.split('_')[1]
+                        if date == fdate:
+                        
+                            fpath = DATAPATH + '/' + ff
+                            if os.path.isfile(fpath):
+                                df = pd.read_csv(fpath, skiprows=28, index_col=False)
+                                target_df = df[['Depth (Meter)', col]]
+                                target_df.columns = ['Depth (Meter)', f'{point_names[counter2]}']
+                                target_df['Depth (Meter)'] = np.round(target_df['Depth (Meter)'], 1)
+                                temp_profiles_df =  temp_profiles_df.merge(target_df, how='outer', on='Depth (Meter)', sort=True)
+                                temp_profiles_df.set_index('Depth (Meter)',drop=True, inplace=True, verify_integrity=True)
+                                counter2 += 1
                     
                 if len(point_names) > 0:
                     cols_sorted = sorted(point_names)
@@ -168,8 +173,9 @@ def populate_db():
     try:
 
         for f in os.listdir(DATAPATH):
-            fdate = f.split('_')[1]
-            fdates.add(fdate)
+            if f.endswith('.csv'):
+                fdate = f.split('_')[1]
+                fdates.add(fdate)
 
         per_date_df = {}
         for fdate_ in fdates:
@@ -184,47 +190,49 @@ def populate_db():
                 point_names = []
                 lat_info = []
                 lon_info = []
-                for ff in os.listdir(DATAPATH):
-                    checkpath = DATAPATH + '/' + ff
-                    check_df = pd.read_csv(checkpath, skiprows=28, index_col=False)
-                    if len(check_df) < 5:
-                        continue
-                    fdate = ff.split('_')[1]
-                    if date == fdate:
-                        lat = None
-                        lon = None
-                        cast_time = None
-                        for line in open(f'{DATAPATH}/{ff}', 'r'):
-                            split_comma = line.split(',')
-                            split_space = line.split(' ')
-                            if split_comma[0] == '% Start latitude':
-                                lat = float(split_comma[1][:-2])
-                            if split_comma[0] == '% Start longitude':
-                                lon = float(split_comma[1][:-2])
-                            if split_comma[0] == '% Cast time (local)':
-                                cast_time = split_space[-1][:-1]
-                        lat_info.append(lat)
-                        lon_info.append(lon)
-                        point_name = pointNamer(lat, lon, cast_time)
-                        point_names.append(point_name)
+                for f in os.listdir(DATAPATH):
+                    if f.endswith('.csv'):
+                        checkpath = DATAPATH + '/' + f
+                        check_df = pd.read_csv(checkpath, skiprows=28, index_col=False)
+                        if len(check_df) < 5:
+                            continue
+                        fdate = f.split('_')[1]
+                        if date == fdate:
+                            lat = None
+                            lon = None
+                            cast_time = None
+                            for line in open(f'{DATAPATH}/{f}', 'r'):
+                                split_comma = line.split(',')
+                                split_space = line.split(' ')
+                                if split_comma[0] == '% Start latitude':
+                                    lat = float(split_comma[1][:-2])
+                                if split_comma[0] == '% Start longitude':
+                                    lon = float(split_comma[1][:-2])
+                                if split_comma[0] == '% Cast time (local)':
+                                    cast_time = split_space[-1][:-1]
+                            lat_info.append(lat)
+                            lon_info.append(lon)
+                            point_name = pointNamer(lat, lon, cast_time)
+                            point_names.append(point_name)
 
                 counter2 = 0
-                for ff in os.listdir(DATAPATH):
-                    checkpath = DATAPATH + '/' + ff
-                    check_df = pd.read_csv(checkpath, skiprows=28, index_col=False)
-                    if len(check_df) < 5:
-                        continue
-                    fdate = ff.split('_')[1]
-                    if date == fdate:
-                    
-                        fpath = DATAPATH + '/' + ff
-                        if os.path.isfile(fpath):
-                            df = pd.read_csv(fpath, skiprows=28, index_col=False)
-                            target_df = df[['Depth (Meter)', col]]
-                            target_df.columns = ['Depth (Meter)', f'{point_names[counter2]}']
-                            target_df['Depth (Meter)'] = np.round(target_df['Depth (Meter)'], 1)
-                            temp_profiles_df =  temp_profiles_df.merge(target_df, how='outer', on='Depth (Meter)', sort=True)
-                            counter2 += 1
+                for f in os.listdir(DATAPATH):
+                    if f.endswith('.csv'):
+                        checkpath = DATAPATH + '/' + f
+                        check_df = pd.read_csv(checkpath, skiprows=28, index_col=False)
+                        if len(check_df) < 5:
+                            continue
+                        fdate = f.split('_')[1]
+                        if date == fdate:
+                        
+                            fpath = DATAPATH + '/' + f
+                            if os.path.isfile(fpath):
+                                df = pd.read_csv(fpath, skiprows=28, index_col=False)
+                                target_df = df[['Depth (Meter)', col]]
+                                target_df.columns = ['Depth (Meter)', f'{point_names[counter2]}']
+                                target_df['Depth (Meter)'] = np.round(target_df['Depth (Meter)'], 1)
+                                temp_profiles_df =  temp_profiles_df.merge(target_df, how='outer', on='Depth (Meter)', sort=True)
+                                counter2 += 1
   
                 if len(point_names) > 0:
                     cols_sorted = sorted(point_names)
@@ -247,10 +255,13 @@ def populate_db():
 def plot_ctd_data():
     params_dict = {
         'temperature': 'Temperature (Celsius)',
-        'conductivity': 'Conductivity (MicroSiemens per Centimeter)',
-        'density': 'Density (Kilograms per Cubic Meter)',
-        'pressure': 'Pressure (Decibar)'
     }
+    # params_dict = {
+    #     'temperature': 'Temperature (Celsius)',
+    #     'conductivity': 'Conductivity (MicroSiemens per Centimeter)',
+    #     'density': 'Density (Kilograms per Cubic Meter)',
+    #     'pressure': 'Pressure (Decibar)'
+    # }
     xlabels_dict = {
         'temperature': 'Temperature (°C)',
         'conductivity': 'Conductivity (u"\u03bcS/cm")',
@@ -269,18 +280,23 @@ def plot_ctd_data():
         
         for data in ctd_data:
             date = data['date']
-            dates.append(datetime.strptime(date, '%Y-%m-%d').date())
-            df = json.loads(data['data'][param])
-            data_dict[date] = df
+            if date.split('-')[0] == '2022':
+                dates.append(datetime.strptime(date, '%Y-%m-%d').date())
+                df = json.loads(data['data'][param])
+                data_dict[date] = df
         dates.sort()
-        
+
         fmt_dates = []
         for date in dates:
             fmt_dates.append(date.strftime('%Y-%m-%d'))
         
         if qmode == 'spatial':
-            nrows = nrows_ncols_for_subplots(data_dict)[0]
-            ncols = nrows_ncols_for_subplots(data_dict)[1]
+            if len(data_dict) == 3:
+                nrows = 3
+                ncols = 1
+            else:
+                nrows = nrows_ncols_for_subplots(data_dict)[0]
+                ncols = nrows_ncols_for_subplots(data_dict)[1]
             spatialcolors = {
                         'L1': 'm','L2': 'darkviolet', 'L3': 'deeppink',
                         'LR': 'red', 'PV1': 'lime', 'PV6': 'deepskyblue',
@@ -288,11 +304,13 @@ def plot_ctd_data():
                         'FAR_UP': 'grey', 'FAR_DOWN': 'darkgrey',
                         'VERY_FAR_UP': 'lightgrey', 'VERY_FAR_DOWN': 'gainsboro'
                     }
-            fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(16, 8), sharex=True, sharey=True)
+            fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(6, 8), sharex=True, sharey=True)
             
             idx = []
             for i in range(nrows):
                 for j in range(ncols):
+                    if ncols == 1:
+                        k = i
                     if ncols == 2:
                         idx.append(i + j)
                         idx_np = np.array(idx)
@@ -317,10 +335,14 @@ def plot_ctd_data():
                         plot_cols = plot_df.columns.values.tolist()
                         y = plot_df['Depth (Meter)']
                         for plot_col in plot_cols[1:]:
-                            print(plot_col)
-                            x = plot_df[plot_col]
-                            colorkey = plot_col.split(' ')[0]
-                            axes[i, j].scatter(x, y, label=plot_col[:-3], s=6, color=spatialcolors[colorkey])
+                            point_name = plot_col.split(' ')[0]
+                            if point_name == 'LR' or point_name == 'PV1':
+                                x = plot_df[plot_col]
+                                colorkey = plot_col.split(' ')[0]
+                                if ncols == 1:
+                                    axes[i].scatter(x, y, label=plot_col[:-3], s=6, color=spatialcolors[colorkey])
+                                else:
+                                    axes[i, j].scatter(x, y, label=plot_col[:-3], s=6, color=spatialcolors[colorkey])
                         leg_cols = 1
                         if len(plot_cols) > 14:
                             leg_cols = 2
@@ -328,18 +350,30 @@ def plot_ctd_data():
                             leg_cols = 3
                         if len(plot_cols) > 42:
                             leg_cols = 4
-                        axes[i, j].legend(fontsize=6, framealpha=0.25, loc='upper left', ncols=leg_cols, columnspacing=0.2, labelspacing=0.2, handletextpad=0.1)
-                        axtitle = f'{month_names[fmt_dates[k][5:7]]}-{fmt_dates[k][:4]}'
-                        axes[i, j].set_title(axtitle, fontsize=10)
-                        if k == 0:
-                            axes[i, j].invert_yaxis()
-                        if i == nrows - 1:
-                            axes[i, j].set_xlabel(xlabels_dict[qparam])
+                        if ncols == 1:
+                            axes[i].legend(fontsize=8, framealpha=0.25, loc='upper left', ncols=leg_cols, columnspacing=0.2, labelspacing=0.2, handletextpad=0.1)
+                            axtitle = f'{month_names[fmt_dates[k][5:7]]}-{fmt_dates[k][:4]}'
+                            axes[i].set_title(axtitle, fontsize=10)
+                            if k == 0:
+                                axes[i].invert_yaxis()
+                            if i == nrows - 1:
+                                axes[i].set_xlabel(xlabels_dict[qparam])
+                        else:
+                            axes[i, j].legend(fontsize=8, framealpha=0.25, loc='upper left', ncols=leg_cols, columnspacing=0.2, labelspacing=0.2, handletextpad=0.1)
+                            axtitle = f'{month_names[fmt_dates[k][5:7]]}-{fmt_dates[k][:4]}'
+                            axes[i, j].set_title(axtitle, fontsize=10)
+                            if k == 0:
+                                axes[i, j].invert_yaxis()
+                            if i == nrows - 1:
+                                axes[i, j].set_xlabel(xlabels_dict[qparam])
                     except IndexError:
                         pass
-                axes[i, 0].set_ylabel('Depth (m)')
+                if ncols == 1:
+                    axes[i].set_ylabel('Depth (m)')
+                else:
+                    axes[i, 0].set_ylabel('Depth (m)')
             plt.tight_layout()
-            figname = f'{GRAPH_PATH}/fotoagua_{qparam}_{qmode}.png'
+            figname = f'{GRAPH_PATH}/fotoagua_{qparam}_{qmode}.jpeg'
             plt.savefig(figname, dpi=300)
             plt.show()
 
@@ -384,12 +418,20 @@ def plot_ctd_data():
             plot_ymax = np.max(np.array(ymaxs))
             if len(all_sites_dict) > 0:
                 plot_sites = list(all_sites_dict.keys())
-                nrows = nrows_ncols_for_subplots(all_sites_dict)[0]
-                ncols = nrows_ncols_for_subplots(all_sites_dict)[1]
-                fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(16, 8), sharex=True, sharey=True)
+                print(len(plot_sites))
+                if len(plot_sites) == 2:
+                    nrows = 2
+                    ncols = 1
+                else:
+                    nrows = nrows_ncols_for_subplots(all_sites_dict)[0]
+                    ncols = nrows_ncols_for_subplots(all_sites_dict)[1]
+
+                fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(6, 8), sharex=True, sharey=True)
                 idx = []
                 for i in range(nrows):
                     for j in range(ncols):
+                        if ncols == 1:
+                            k = i
                         if ncols == 2:
                             idx.append(i + j)
                             idx_np = np.array(idx)
@@ -413,45 +455,78 @@ def plot_ctd_data():
                             plot_df = all_sites_dict[plot_sites[k]]
                             plot_df.dropna(how='all', axis=1, inplace=True)
                             plot_cols = plot_df.columns.values.tolist()
-                            plot_df = plot_df.rename_axis('Depth (Meter)').reset_index()
-                            y = plot_df['Depth (Meter)']
-                            for plot_col in plot_cols:
-                                plot_date = plot_col.split(' ')[0]
-                                plot_date = plot_date.replace('20', '')
-                                cast_time = plot_col.split(' ')[-1]
-                                plot_date_items = plot_date.split('-')
-                                year = plot_date_items[0]
-                                month = plot_date_items[1]
-                                label = f'{month_names[month]}-{year} {cast_time[:-3]}'
-                                x = plot_df[plot_col]
-                                xticks = np.arange(int(plot_xmin), int(plot_xmax), 1)
-                                yticks = np.arange(int(plot_ymin), int(plot_ymax), 2)
-                                axes[i, j].scatter(x, y, label=label, color=temporalcolors[month], s=6)
-                                axes[i, j].set_xticks(xticks, labels=xticks, fontsize=9)
-                                axes[i, j].set_yticks(yticks, labels=yticks, fontsize=9)
-                            leg_cols = 1
-                            if len(plot_cols) > 13:
-                                leg_cols = 2
-                            if len(plot_cols) > 26:
-                                leg_cols = 3
-                            if len(plot_cols) > 39:
-                                leg_cols = 4
-                            axes[i, j].legend(fontsize=6, framealpha=0.25, loc='upper left', ncols=leg_cols, columnspacing=0.2, labelspacing=0.2, handletextpad=0.1)
-                            axes[i, j].set_title(plot_sites[k], fontsize=9)
-                            if i == nrows - 1:
-                                axes[i, j].set_xlabel(xlabels_dict[qparam], fontsize=9)
-                            if j == 0:
-                                axes[i, j].set_ylabel('Depth (m)', fontsize=9)
-                            if k == 0:
-                                axes[i, j].invert_yaxis()
+                            if ncols == 1:
+                                plot_df = plot_df.rename_axis('Depth (Meter)').reset_index()
+                                y = plot_df['Depth (Meter)']
+                                for plot_col in plot_cols:
+                                    plot_date = plot_col.split(' ')[0]
+                                    plot_date = plot_date.replace('20', '')
+                                    cast_time = plot_col.split(' ')[-1]
+                                    plot_date_items = plot_date.split('-')
+                                    year = plot_date_items[0]
+                                    month = plot_date_items[1]
+                                    label = f'{month_names[month]}-{year} {cast_time[:-3]}'
+                                    x = plot_df[plot_col]
+                                    xticks = np.arange(int(plot_xmin), int(plot_xmax), 1)
+                                    yticks = np.arange(int(plot_ymin), int(plot_ymax), 2)
+                                    axes[i].scatter(x, y, label=label, color=temporalcolors[month], s=6)
+                                    axes[i].set_xticks(xticks, labels=xticks, fontsize=9)
+                                    axes[i].set_yticks(yticks, labels=yticks, fontsize=9)
+                                leg_cols = 1
+                                if len(plot_cols) > 13:
+                                    leg_cols = 2
+                                if len(plot_cols) > 26:
+                                    leg_cols = 3
+                                if len(plot_cols) > 39:
+                                    leg_cols = 4
+                                axes[i].legend(fontsize=8, framealpha=0.25, loc='upper left', ncols=leg_cols, columnspacing=0.2, labelspacing=0.2, handletextpad=0.1)
+                                axes[i].set_title(plot_sites[k], fontsize=9)
+                                if i == nrows - 1:
+                                    axes[i].set_xlabel(xlabels_dict[qparam], fontsize=9)
+                                if j == 0:
+                                    axes[i].set_ylabel('Depth (m)', fontsize=9)
+                                if k == 0:
+                                    axes[i].invert_yaxis()
+                            else:
+                                plot_df = plot_df.rename_axis('Depth (Meter)').reset_index()
+                                y = plot_df['Depth (Meter)']
+                                for plot_col in plot_cols:
+                                    plot_date = plot_col.split(' ')[0]
+                                    plot_date = plot_date.replace('20', '')
+                                    cast_time = plot_col.split(' ')[-1]
+                                    plot_date_items = plot_date.split('-')
+                                    year = plot_date_items[0]
+                                    month = plot_date_items[1]
+                                    label = f'{month_names[month]}-{year} {cast_time[:-3]}'
+                                    x = plot_df[plot_col]
+                                    xticks = np.arange(int(plot_xmin), int(plot_xmax), 1)
+                                    yticks = np.arange(int(plot_ymin), int(plot_ymax), 2)
+                                    axes[i, j].scatter(x, y, label=label, color=temporalcolors[month], s=6)
+                                    axes[i, j].set_xticks(xticks, labels=xticks, fontsize=9)
+                                    axes[i, j].set_yticks(yticks, labels=yticks, fontsize=9)
+                                leg_cols = 1
+                                if len(plot_cols) > 13:
+                                    leg_cols = 2
+                                if len(plot_cols) > 26:
+                                    leg_cols = 3
+                                if len(plot_cols) > 39:
+                                    leg_cols = 4
+                                axes[i, j].legend(fontsize=8, framealpha=0.25, loc='upper left', ncols=leg_cols, columnspacing=0.2, labelspacing=0.2, handletextpad=0.1)
+                                axes[i, j].set_title(plot_sites[k], fontsize=9)
+                                if i == nrows - 1:
+                                    axes[i, j].set_xlabel(xlabels_dict[qparam], fontsize=9)
+                                if j == 0:
+                                    axes[i, j].set_ylabel('Depth (m)', fontsize=9)
+                                if k == 0:
+                                    axes[i, j].invert_yaxis()
                         except IndexError as e:
                             print('INDEXERROR', e)
                             pass
                 plt.tight_layout()
-                figname1 = f'{GRAPH_PATH}/fotoagua_{qparam}_{qmode}.png'
-                figname2 = f'{GRAPH_PATH}/fotoagua_{qparam}_{qmode}.jpg'
-                plt.savefig(figname1, dpi=1200)
-                plt.savefig(figname2, dpi=1200)
+                # figname1 = f'{GRAPH_PATH}/fotoagua_{qparam}_{qmode}.png'
+                figname2 = f'{GRAPH_PATH}/fotoagua_{qparam}_{qmode}.jpeg'
+                # plt.savefig(figname1, dpi=300)
+                plt.savefig(figname2, dpi=300)
                 plt.show()
 
         return (jsonify({"msg": "success"}), 200)
